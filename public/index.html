@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schedule List</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <label for="userDropdown">Select User:</label>
+  <select id="userDropdown" onchange="loadScheduleList()">
+    <!-- Dynamically populate options with user data -->
+  </select>
+  
+  <div id="schedule-list"></div>
+
+  <script>
+    async function loadScheduleList() {
+      const userDropdown = document.getElementById('userDropdown');
+      const selectedChatId = userDropdown.value;
+      
+      if (selectedChatId) {
+        const response = await fetch(`/schedules?chatId=${selectedChatId}`);
+        const scheduleList = await response.text();
+        document.getElementById('schedule-list').innerHTML = scheduleList;
+      }
+    }
+
+    async function loadUserDropdown() {
+      const response = await fetch('/users');
+      const userData = await response.json();
+      const userDropdown = document.getElementById('userDropdown');
+
+      // Populate dropdown with user options
+      userData.forEach(user => {
+        const option = document.createElement('option');
+        option.value = user.chatId;
+        option.textContent = user.username; // or user.userId, depending on your user data structure
+        userDropdown.appendChild(option);
+      });
+
+      // Trigger loading schedule list for the first user
+      loadScheduleList();
+    }
+
+    loadUserDropdown();
+  </script>
+</body>
+</html>
