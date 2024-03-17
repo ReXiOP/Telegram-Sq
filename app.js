@@ -14,6 +14,7 @@ Developer Information:
 - Telegram: @sajidrds
 - Phone: +8801926251425
 `;
+
 // Initialize Telegram Bot
 const bot = new TelegramBot(token, { polling: true });
 
@@ -76,7 +77,7 @@ bot.on('message', (msg) => {
 function handleCommands(chatId, text) {
   // Handle commands or messages as needed
   if (text === '/start') {
-    bot.sendMessage(chatId, 'Welcome to the scheduler bot! Use /schedule to set up a notification schedule, /list to see your schedule list, /delete to delete a schedule, /info for developer information.');
+    bot.sendMessage(chatId, 'Welcome to the scheduler bot! Use /schedule to set up a notification schedule, /list to see your schedule list, /delete to delete a schedule, /modify to modify a schedule, or /info for developer information.');
   } else if (text === '/schedule') {
     bot.sendMessage(chatId, 'Please enter the task name:');
     userStates[chatId] = { step: 1, scheduleData: {} };
@@ -86,6 +87,8 @@ function handleCommands(chatId, text) {
     promptUserToDelete(chatId);
   } else if (text === '/info') {
     bot.sendMessage(chatId, developerInfo);
+  } else if (text === '/modify') {
+    promptUserToModify(chatId);
   } else {
     bot.sendMessage(chatId, 'Unknown command. Use /start to get started.');
   }
@@ -125,6 +128,23 @@ function promptUserToDelete(chatId) {
     userStates[chatId] = { step: 6, scheduleData: userSchedules };
   } else {
     bot.sendMessage(chatId, 'You have no schedules to delete. Use /schedule to set up a new schedule.');
+  }
+}
+
+// Prompt user to select a schedule to modify
+function promptUserToModify(chatId) {
+  const userSchedules = users.filter(user => user.chatId === chatId);
+
+  if (userSchedules.length > 0) {
+    let modifyPromptMessage = 'Select a schedule to modify:\n';
+    userSchedules.forEach((schedule, index) => {
+      modifyPromptMessage += `${index + 1}. Task: ${schedule.taskName}, Frequency: ${schedule.frequency}, Time: ${moment(schedule.scheduleTime).tz('Asia/Dhaka').format('YYYY-MM-DD HH:mm')}\n`;
+    });
+
+    bot.sendMessage(chatId, modifyPromptMessage);
+    userStates[chatId] = { step: 7, scheduleData: userSchedules };
+  } else {
+    bot.sendMessage(chatId, 'You have no schedules to modify. Use /schedule to set up a new schedule.');
   }
 }
 
@@ -230,9 +250,40 @@ function handleScheduling(chatId, text) {
       // Reset user state
       delete userStates[chatId];
       break;
+    case 7:
+      // Modify selected schedule
+      const modifyIndex = parseInt(text) - 1;
+
+      if (!isNaN(modifyIndex) && modifyIndex >= 0 && modifyIndex < userState.scheduleData.length) {
+        const scheduleToModify = userState.scheduleData[modifyIndex];
+        const scheduleIndexInUsers = users.findIndex(user => user.chatId === chatId && user.scheduleTime === scheduleToModify.scheduleTime);
+
+        if (scheduleIndexInUsers !== -1) {
+          // Cancel the scheduled job
+          const scheduledJob = schedule.scheduledJobs[scheduleToModify.scheduleTime];
+          if (scheduledJob) {
+            scheduledJob.cancel();
+          }
+
+          // Remove the schedule from users array temporarily
+          const removedSchedule = users.splice(scheduleIndexInUsers, 1)[0];
+          fs.writeFileSync(userDataPath, JSON.stringify(users, null, 2));
+
+          // Prompt user to enter new scheduling details
+          bot.sendMessage(chatId, `Modifying Schedule for Task "${scheduleToModify.taskName}"`);
+
+          // Set up scheduling process with existing details pre-filled
+          userStates[chatId] = { step: 1, scheduleData: { ...removedSchedule } };
+        } else {
+          bot.sendMessage(chatId, 'Schedule not found.');
+        }
+      } else {
+        bot.sendMessage(chatId, 'Invalid selection. Try again:');
+      }
+      break;
     default:
       // Invalid state
-      bot.sendMessage(chatId, 'Invalid state. Please use /schedule to start the scheduling process, /list to see your schedule list, /delete to delete a schedule, or /info for developer information.');
+      bot.sendMessage(chatId, 'Invalid state. Please use /schedule to start the scheduling process, /list to see your schedule list, /delete to delete a schedule, /modify to modify a schedule, or /info for developer information.');
       delete userStates[chatId];
   }
 }
