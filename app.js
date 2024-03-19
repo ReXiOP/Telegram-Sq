@@ -204,6 +204,7 @@ function handleScheduling(chatId, text) {
         console.log(`Sending scheduled message to ${chatId} at ${currentTime}`);
         sendScheduledMessage(chatId, `Task: ${userState.scheduleData.taskName}\nMessage: ${userState.scheduleData.message}`);
       });
+      
 
       // Update the users array and save it back to the user.json file
       users.push({
